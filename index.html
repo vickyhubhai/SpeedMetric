@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeedMetric</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Libraries for real network testing -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fast-speedtest-api@0.3.2/dist/FastSpeedtest.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <h1>Speed<span>Metric</span></h1>
+                </div>
+                <p class="tagline">Test your internet connection with precision</p>
+            </div>
+            <div class="header-actions">
+                <button id="settingsButton" class="btn icon-btn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="shareResults" class="btn icon-btn" title="Share Results" disabled>
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <div class="test-card">
+                <div class="test-controls">
+                    <button id="startTest" class="btn primary btn-ripple">
+                        <i class="fas fa-play"></i> Start Speed Test
+                    </button>
+                    <button id="fallbackTest" class="btn secondary btn-ripple" style="margin-top: 10px;">
+                        <i class="fas fa-bolt"></i> Quick Test (Fallback)
+                    </button>
+                    <div id="testActionButtons" class="test-action-buttons hidden">
+                        <button id="restartTest" class="btn secondary btn-ripple">
+                            <i class="fas fa-redo"></i> Restart Speed Test
+                        </button>
+                        <button id="stopTest" class="btn secondary accent btn-ripple">
+                            <i class="fas fa-stop"></i> Stop Speed Test
+                        </button>
+                    </div>
+                    <div id="testProgress" class="progress-container hidden">
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="progress-text">Initializing test...</div>
+                    </div>
+                </div>
+
+                <div class="results-container">
+                    <div class="result-box">
+                        <div class="gauge-container">
+                            <div class="gauge" id="downloadGauge">
+                                <div class="gauge-inner">
+                                    <svg viewBox="0 0 120 120" class="gauge-svg">
+                                        <defs>
+                                            <linearGradient id="downloadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                <stop offset="0%" stop-color="#00d4ff" />
+                                                <stop offset="100%" stop-color="#40e0ff" />
+                                            </linearGradient>
+                                        </defs>
+                                        <circle class="gauge-background" cx="60" cy="60" r="50"></circle>
+                                        <circle class="gauge-progress" cx="60" cy="60" r="50" id="downloadGaugeFill"></circle>
+                                    </svg>
+                                    <div class="gauge-center">
+                                        <div class="gauge-value" id="downloadValue">0</div>
+                                        <div class="gauge-unit">Mbps</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="gauge-label">Download</div>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="gauge-container">
+                            <div class="gauge" id="uploadGauge">
+                                <div class="gauge-inner">
+                                    <svg viewBox="0 0 120 120" class="gauge-svg">
+                                        <defs>
+                                            <linearGradient id="uploadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                <stop offset="0%" stop-color="#7b2cbf" />
+                                                <stop offset="100%" stop-color="#9d4edd" />
+                                            </linearGradient>
+                                        </defs>
+                                        <circle class="gauge-background" cx="60" cy="60" r="50"></circle>
+                                        <circle class="gauge-progress" cx="60" cy="60" r="50" id="uploadGaugeFill"></circle>
+                                    </svg>
+                                    <div class="gauge-center">
+                                        <div class="gauge-value" id="uploadValue">0</div>
+                                        <div class="gauge-unit">Mbps</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="gauge-label">Upload</div>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="gauge-container ping">
+                            <div class="ping-display">
+                                <div class="ping-value" id="pingValue">0</div>
+                                <div class="ping-unit">ms</div>
+                            </div>
+                            <div class="gauge-label">Ping</div>
+                        </div>
+                    </div>
+
+                    <div class="result-box">
+                        <div class="gauge-container packet-loss">
+                            <div class="packet-loss-display">
+                                <div class="packet-loss-value" id="packetLossValue">0</div>
+                                <div class="packet-loss-unit">%</div>
+                            </div>
+                            <div class="gauge-label">Packet Loss</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="realtime-graph-container">
+                    <div class="graph-header">
+                        <h3>Real-Time Performance</h3>
+                        <div class="graph-controls">
+                            <button class="graph-control active" data-graph="download">Download</button>
+                            <button class="graph-control" data-graph="upload">Upload</button>
+                            <button class="graph-control" data-graph="ping">Ping</button>
+                        </div>
+                    </div>
+                    <div class="graph-wrapper">
+                        <canvas id="realtimeGraph"></canvas>
+                    </div>
+                </div>
+
+                <div class="network-quality">
+                    <div class="quality-label">Network Quality</div>
+                    <div class="quality-meter">
+                        <div class="quality-fill" id="qualityFill"></div>
+                        <div class="quality-markers">
+                            <span>Poor</span>
+                            <span>Fair</span>
+                            <span>Good</span>
+                            <span>Excellent</span>
+                        </div>
+                    </div>
+                    <div class="quality-value" id="qualityValue">-</div>
+                    <button id="viewReportBtn" class="btn secondary" disabled>
+                        <i class="fas fa-file-alt"></i> View Detailed Report
+                    </button>
+                </div>
+
+                <div class="smart-tips-container">
+                    <div class="smart-tips-header">
+                        <h3><i class="fas fa-lightbulb"></i> Smart Recommendations</h3>
+                        <button id="refreshTips" class="btn icon-btn small" title="Refresh Tips">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <div id="smartTips" class="smart-tips-content">
+                        <div class="smart-tip-placeholder">
+                            <p>Complete a speed test to get personalized recommendations.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="details-container">
+                    <h3 class="details-title"><i class="fas fa-info-circle"></i> Connection Details</h3>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-building"></i> ISP:</span>
+                        <span class="detail-value" id="ispValue">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-server"></i> Server:</span>
+                        <span class="detail-value" id="serverValue">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-calendar-alt"></i> Date:</span>
+                        <span class="detail-value" id="dateValue">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-random"></i> Jitter:</span>
+                        <span class="detail-value" id="jitterValue">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="history-card">
+                <h2><i class="fas fa-history"></i> Test History</h2>
+                <div class="history-actions">
+                    <button id="compareHistoryBtn" class="btn primary">
+                        <i class="fas fa-chart-bar"></i> Compare Tests
+                    </button>
+                    <button id="clearHistory" class="btn secondary">
+                        <i class="fas fa-trash-alt"></i> Clear History
+                    </button>
+                </div>
+                <div class="history-container">
+                    <div id="historyEmpty" class="history-empty">
+                        <i class="fas fa-chart-line"></i>
+                        <p>No test history yet. Run a speed test to see your results here.</p>
+                    </div>
+                    <div id="historyList" class="history-list"></div>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <h2><i class="fas fa-info-circle"></i> About SpeedMetric</h2>
+                <p>This speed test measures your Internet connection's performance in three key areas:</p>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-icon download-icon">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <div class="info-content">
+                            <h3>Download Speed</h3>
+                            <p>How quickly data is transferred from the internet to your device.</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon upload-icon">
+                            <i class="fas fa-upload"></i>
+                        </div>
+                        <div class="info-content">
+                            <h3>Upload Speed</h3>
+                            <p>How quickly data is transferred from your device to the internet.</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon ping-icon">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <div class="info-content">
+                            <h3>Ping (Latency)</h3>
+                            <p>The time it takes for data to travel from your device to a server and back.</p>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon" style="background: var(--warning);">
+                            <i class="fas fa-random"></i>
+                        </div>
+                        <div class="info-content">
+                            <h3>Jitter</h3>
+                            <p>The variation in ping times, which affects the stability of your connection.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="tip-box">
+                    <i class="fas fa-lightbulb"></i>
+                    <p>For the most accurate results, close other applications and tabs that might be using your internet connection.</p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2023 SpeedMetric. All rights reserved.</p>
+            <div class="social-links">
+                <a href="https://www.instagram.com/_urfav.vicky/" class="social-link instagram" title="Instagram"><i class="fab fa-instagram"></i></a>
+                <a href="https://discord.gg/HUVrUfjsj3" class="social-link discord" title="Discord"><i class="fab fa-discord"></i></a>
+                <a href="https://github.com/vickyhubhai" class="social-link github" title="GitHub"><i class="fab fa-github"></i></a>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-share-alt"></i> Share Your Results</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="share-preview">
+                    <div id="shareCard" class="share-card">
+                        <div class="share-card-header">
+                            <div class="logo">
+                                <i class="fas fa-tachometer-alt"></i>
+                                <h3>Speed<span>Metric</span></h3>
+                            </div>
+                            <div class="share-date" id="shareDate"></div>
+                        </div>
+                        <div class="share-card-body">
+                            <div class="share-metrics">
+                                <div class="share-metric">
+                                    <div class="share-metric-value" id="shareDownload">0</div>
+                                    <div class="share-metric-label">Download (Mbps)</div>
+                                </div>
+                                <div class="share-metric">
+                                    <div class="share-metric-value" id="shareUpload">0</div>
+                                    <div class="share-metric-label">Upload (Mbps)</div>
+                                </div>
+                                <div class="share-metric">
+                                    <div class="share-metric-value" id="sharePing">0</div>
+                                    <div class="share-metric-label">Ping (ms)</div>
+                                </div>
+                                <div class="share-metric">
+                                    <div class="share-metric-value" id="shareJitter">0</div>
+                                    <div class="share-metric-label">Jitter (ms)</div>
+                                </div>
+                            </div>
+                            <div class="share-quality">
+                                <div class="share-quality-label">Network Quality:</div>
+                                <div class="share-quality-value" id="shareQuality">-</div>
+                            </div>
+                            <div class="share-isp">
+                                <div class="share-isp-label">ISP:</div>
+                                <div class="share-isp-value" id="shareISP">-</div>
+                            </div>
+                        </div>
+                        <div class="share-card-footer">
+                            <div class="share-url">speedmetric.com</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="share-options">
+                    <h3>Share Options</h3>
+                    <div class="share-buttons">
+                        <button id="copyTextBtn" class="share-btn">
+                            <i class="fas fa-copy"></i> Copy Text
+                        </button>
+                        <button id="downloadImageBtn" class="share-btn">
+                            <i class="fas fa-image"></i> Save as Image
+                        </button>
+                        <button id="downloadPdfBtn" class="share-btn">
+                            <i class="fas fa-file-pdf"></i> Save as PDF
+                        </button>
+                    </div>
+                    <div class="social-share-buttons">
+                        <button id="shareTwitterBtn" class="social-share-btn twitter">
+                            <i class="fab fa-twitter"></i> Twitter
+                        </button>
+                        <button id="shareFacebookBtn" class="social-share-btn facebook">
+                            <i class="fab fa-facebook-f"></i> Facebook
+                        </button>
+                        <button id="shareWhatsappBtn" class="social-share-btn whatsapp">
+                            <i class="fab fa-whatsapp"></i> WhatsApp
+                        </button>
+                        <button id="shareEmailBtn" class="social-share-btn email">
+                            <i class="fas fa-envelope"></i> Email
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-cog"></i> Settings</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>Test Settings</h3>
+                    <div class="setting-item">
+                        <label for="testMode">Test Mode:</label>
+                        <select id="testMode" class="setting-select">
+                            <option value="auto">Auto (Recommended)</option>
+                            <option value="real">Real Network Test</option>
+                            <option value="simulated">Simulated Test</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="serverLocation">Server Location:</label>
+                        <select id="serverLocation" class="setting-select">
+                            <option value="auto">Auto (Nearest)</option>
+                            <option value="us">United States</option>
+                            <option value="eu">Europe</option>
+                            <option value="asia">Asia</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="testDuration">Test Duration:</label>
+                        <select id="testDuration" class="setting-select">
+                            <option value="normal">Normal</option>
+                            <option value="extended">Extended (More Accurate)</option>
+                            <option value="quick">Quick (Less Accurate)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Display Settings</h3>
+                    <div class="setting-item">
+                        <label for="speedUnit">Speed Unit:</label>
+                        <select id="speedUnit" class="setting-select">
+                            <option value="mbps">Mbps (Megabits per second)</option>
+                            <option value="mbytes">MB/s (Megabytes per second)</option>
+                        </select>
+                    </div>
+                    <div class="setting-item checkbox-setting">
+                        <input type="checkbox" id="showAdvancedMetrics" class="setting-checkbox">
+                        <label for="showAdvancedMetrics">Show Advanced Metrics</label>
+                    </div>
+                    <div class="setting-item checkbox-setting">
+                        <input type="checkbox" id="enableAnimations" class="setting-checkbox" checked>
+                        <label for="enableAnimations">Enable Animations</label>
+                    </div>
+                </div>
+                <div class="settings-actions">
+                    <button id="resetSettings" class="btn secondary">Reset to Defaults</button>
+                    <button id="saveSettings" class="btn primary">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Modal -->
+    <div id="comparisonModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-chart-bar"></i> Compare Results</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="comparison-container">
+                    <div class="comparison-selector">
+                        <div class="comparison-select">
+                            <label for="compareTest1">Test 1:</label>
+                            <select id="compareTest1" class="setting-select">
+                                <option value="current">Current Test</option>
+                                <!-- Other options will be populated from history -->
+                            </select>
+                        </div>
+                        <div class="comparison-select">
+                            <label for="compareTest2">Test 2:</label>
+                            <select id="compareTest2" class="setting-select">
+                                <!-- Options will be populated from history -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="comparison-results">
+                        <div class="comparison-chart-container">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                        <div class="comparison-metrics">
+                            <div class="comparison-metric">
+                                <div class="comparison-metric-label">Download</div>
+                                <div class="comparison-metric-values">
+                                    <div class="comparison-value test1" id="compareDownload1">0 Mbps</div>
+                                    <div class="comparison-value test2" id="compareDownload2">0 Mbps</div>
+                                    <div class="comparison-diff" id="compareDownloadDiff">0%</div>
+                                </div>
+                            </div>
+                            <div class="comparison-metric">
+                                <div class="comparison-metric-label">Upload</div>
+                                <div class="comparison-metric-values">
+                                    <div class="comparison-value test1" id="compareUpload1">0 Mbps</div>
+                                    <div class="comparison-value test2" id="compareUpload2">0 Mbps</div>
+                                    <div class="comparison-diff" id="compareUploadDiff">0%</div>
+                                </div>
+                            </div>
+                            <div class="comparison-metric">
+                                <div class="comparison-metric-label">Ping</div>
+                                <div class="comparison-metric-values">
+                                    <div class="comparison-value test1" id="comparePing1">0 ms</div>
+                                    <div class="comparison-value test2" id="comparePing2">0 ms</div>
+                                    <div class="comparison-diff" id="comparePingDiff">0%</div>
+                                </div>
+                            </div>
+                            <div class="comparison-metric">
+                                <div class="comparison-metric-label">Jitter</div>
+                                <div class="comparison-metric-values">
+                                    <div class="comparison-value test1" id="compareJitter1">0 ms</div>
+                                    <div class="comparison-value test2" id="compareJitter2">0 ms</div>
+                                    <div class="comparison-diff" id="compareJitterDiff">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Report Modal -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-file-alt"></i> Detailed Report</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="report-container">
+                    <div class="report-section">
+                        <h3>Connection Summary</h3>
+                        <div class="report-grid">
+                            <div class="report-item">
+                                <div class="report-item-label">ISP</div>
+                                <div class="report-item-value" id="reportISP">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Server</div>
+                                <div class="report-item-value" id="reportServer">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">IP Address</div>
+                                <div class="report-item-value" id="reportIP">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Connection Type</div>
+                                <div class="report-item-value" id="reportConnectionType">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="report-section">
+                        <h3>Performance Metrics</h3>
+                        <div class="report-grid">
+                            <div class="report-item">
+                                <div class="report-item-label">Download</div>
+                                <div class="report-item-value" id="reportDownload">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Upload</div>
+                                <div class="report-item-value" id="reportUpload">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Ping</div>
+                                <div class="report-item-value" id="reportPing">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Jitter</div>
+                                <div class="report-item-value" id="reportJitter">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Packet Loss</div>
+                                <div class="report-item-value" id="reportPacketLoss">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Network Quality</div>
+                                <div class="report-item-value" id="reportQuality">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="report-section">
+                        <h3>Advanced Metrics</h3>
+                        <div class="report-grid">
+                            <div class="report-item">
+                                <div class="report-item-label">Download Stability</div>
+                                <div class="report-item-value" id="reportDownloadStability">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Upload Stability</div>
+                                <div class="report-item-value" id="reportUploadStability">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Latency Under Load</div>
+                                <div class="report-item-value" id="reportLatencyLoad">-</div>
+                            </div>
+                            <div class="report-item">
+                                <div class="report-item-label">Buffer Bloat</div>
+                                <div class="report-item-value" id="reportBufferBloat">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="report-section">
+                        <h3>Recommendations</h3>
+                        <div id="reportRecommendations" class="report-recommendations">
+                            <!-- Recommendations will be populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="report-actions">
+                        <button id="downloadReportBtn" class="btn primary">
+                            <i class="fas fa-download"></i> Download Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add html2canvas and jsPDF libraries for image and PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
